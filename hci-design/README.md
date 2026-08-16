@@ -25,19 +25,11 @@ This folder implements a small library of skills that a generating agent invokes
 |---|---|---|
 | `heuristics-nielsen.skill.md` | **In this folder** | Nielsen's ten usability heuristics as a generator checklist (visible feedback, domain-matched vocabulary, reversible actions, recognizable controls, consistent component library, etc.). |
 | `accessibility-wcag.skill.md` | **In this folder** | WCAG 2.2 success criteria as hard invariants (contrast, focus order, ARIA roles, alt text, keyboard reachability) — a generator invariant, not a release-time audit. |
-| `affordances-norman.skill.md` | Proposed, not yet present | Norman's affordance/signifier prescription: a control's visual form must signal its real action (pressable buttons, draggable handles, editable-looking fields), enforced at the component-library level. |
-| `ability-based-personalization.skill.md` | Proposed, not yet present | Per-user accommodations above the WCAG floor (in the tradition of SUPPLE): larger targets, longer dwell, simpler gestures, amplified contrast, plain-language labels, step-by-step disclosure — driven by a user profile, uniquely possible because each UI is generated per-user. |
-| `cognitive-load-progressive-disclosure.skill.md` | Proposed, not yet present | A minimum-sufficient-surface policy: expose only the affordances the dialogue has so far justified; new capability appears only when the user's articulated need entails it. |
+| `affordances-norman.skill.md` | **In this folder** | Norman's affordance/signifier prescription: a control's visual form must signal its real action (pressable buttons, draggable handles, editable-looking fields), enforced at the component-library level. |
+| `ability-based-personalization.skill.md` | **In this folder** | Per-user accommodations above the WCAG floor (in the tradition of SUPPLE): larger targets, longer dwell, simpler gestures, amplified contrast, plain-language labels, step-by-step disclosure — driven by a user profile, uniquely possible because each UI is generated per-user. |
+| `cognitive-load-progressive-disclosure.skill.md` | **In this folder** | A minimum-sufficient-surface policy: expose only the affordances the dialogue has so far justified; new capability appears only when the user's articulated need entails it. |
 | `mixed-initiative.skill.md` | Proposed, not yet present | Horvitz's mixed-initiative principles applied to agentic UI actions: every action affecting the world carries confirmation, reversibility, an audit trail, and a visible confidence signal. |
-| `direct-manipulation.skill.md` | Proposed, not yet present | Shneiderman's three direct-manipulation criteria (visible objects of interest, rapid reversible incremental actions, object manipulation over command syntax) applied to each component. |
-
-## Files in this folder
-
-### `heuristics-nielsen.skill.md`
-Encodes Jakob Nielsen's ten usability heuristics (visibility of system status, match between system and the real world, user control and freedom, consistency and standards, error prevention, recognition rather than recall, flexibility and efficiency of use, aesthetic and minimalist design, help users recognize/diagnose/recover from errors, help and documentation) as generation-time requirements. Loaded whenever Claude generates or regenerates any dashboard, form, table, chart, or interactive component. Includes a per-heuristic "generate this / reject that" spec and a full self-critique verification checklist, and exploits information a traditional designer never had at design time — the user's own dialogue vocabulary and the provenance of each requested capability — to satisfy several heuristics (real-world match, recognition, help/documentation) directly.
-
-### `accessibility-wcag.skill.md`
-Encodes WCAG 2.2 Level A/AA success criteria (contrast, keyboard operability, focus order, labeling, error messaging, target size, live-region announcements, reflow, redundant entry, etc.) as hard invariants organized under WCAG's four principles (Perceivable, Operable, Understandable, Robust) — a component that fails a Level A/AA check is redesigned before it ever reaches the user, and every generation/regeneration re-verifies the full surface. Composes with the Nielsen heuristics skill (e.g., its error-recovery heuristic pairs with WCAG's error-identification criteria) and is described in the paper as the mechanism that makes accessibility "a generator invariant rather than a release-time audit."
+| `direct-manipulation.skill.md` | **In this folder** | Shneiderman's three direct-manipulation criteria (visible objects of interest, rapid reversible incremental actions, object manipulation over command syntax) applied to each component. |
 
 ## Use cases
 
