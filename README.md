@@ -5,7 +5,7 @@ Nathan Conklin's collection of [Claude Agent Skills](https://docs.claude.com/en/
 | Folder | Summary |
 |---|---|
 | [`chat-to-whitepaper/`](chat-to-whitepaper/README.md) | Turns a voice-chat summary or transcript into a polished technical whitepaper `.docx`, by chaining the `nathan-speak` and `nathan-whitepaper` skills below into a draft → style → format pipeline. |
-| [`hci-design/`](hci-design/README.md) | Skills that encode HCI Principals including Nielsen's usability heuristics and WCAG 2.2 accessibility criteria as hard constraints for AI-generated user interfaces, so generated dashboards/forms/charts are usable and accessible by construction. |
+| [`hci-design/`](hci-design/README.md) | Six skills that encode HCI design principles — Nielsen's usability heuristics, WCAG 2.2 accessibility, Norman's affordances, per-user personalization, progressive disclosure, and direct manipulation — as hard constraints for AI-generated user interfaces, so generated dashboards/forms/charts are usable and accessible by construction. |
 | [`nathan-speak/`](nathan-speak/README.md) | A prose style guide that makes Claude write like Nathan Conklin — clear, precise, register-appropriate, and free of common "AI writing" tells (throat-clearing, false binary contrasts, empty adverbs, etc.), with a scoring rubric to check drafts against. |
 | [`nathan-whitepaper/`](nathan-whitepaper/README.md) | A self-contained skill (instructions + embedded Python script + VT logo) that converts a Markdown file into a Word `.docx` matching Nathan's standard Virginia Tech whitepaper template. |
 

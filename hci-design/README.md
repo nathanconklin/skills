@@ -36,4 +36,8 @@ This folder implements a small library of skills that a generating agent invokes
 - Ensuring  AI-generated user interfaces (dashboards, forms, charts, alert builders, etc.) meet baseline usability and accessibility standards automatically, without a separate human design/audit pass.
 - Auditing an existing generated UI for Nielsen-heuristic or WCAG violations and getting a concrete list of failing components with proposed fixes, each traceable to a specific heuristic or success criterion.
 - Serving as the reference implementation accompanying the conceptual FutureHCI research agenda: a runnable, inspectable, version-controlled artifact of HCI design knowledge, contributed by the HCI community itself, rather than a checklist in a paper hoping to influence practitioners.
-- A starting point for extending the library with the remaining proposed skills (affordances, personalization, progressive disclosure, mixed-initiative, direct manipulation) as they are authored.
+- A starting point for extending the library with the one remaining proposed skill (`mixed-initiative`) as it is authored.
+
+## Other files
+
+- [`Automating HCI Principles.pptx`](Automating%20HCI%20Principles.pptx) — a slide deck presenting the research idea and the six-panel framework above.
