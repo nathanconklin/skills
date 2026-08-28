@@ -1,0 +1,28 @@
+.venv/
+__pycache__/
+*.py[cod]
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+build/
+dist/
+*.egg-info/
+
+.env
+.env.*
+!.env.example
+
+# Default exporter output when run from this directory.
+/chatgpt-*.md
+/claude-*.md
+
+# Temporary files left behind if an atomic Markdown write is interrupted.
+.*.md.*
+
+.DS_Store
+Thumbs.db
