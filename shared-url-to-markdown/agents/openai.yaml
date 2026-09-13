@@ -1,4 +1,4 @@
 interface:
   display_name: "Shared URL to Markdown"
   short_description: "Export shared AI chats to one Markdown file"
-  default_prompt: "Use $shared-url-to-markdown to export this public ChatGPT or Claude shared URL to Markdown."
+  default_prompt: "Use $shared-url-to-markdown to export this public ChatGPT or Claude share URL as a Markdown download."

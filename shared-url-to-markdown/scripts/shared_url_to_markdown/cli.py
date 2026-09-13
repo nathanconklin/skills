@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from .browser import BrowserExtractionError, extract_browser
-from .fetch import RetrievalError, extract_http
+from .fetch import MAX_RETRIEVAL_BYTES, RetrievalError, extract_http, extract_snapshot_bytes
 from .render import default_output_path, render_markdown, write_markdown
 from .urls import UrlValidationError, parse_shared_url
 
@@ -16,6 +16,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("url", help="Public chatgpt.com/share or claude.ai/share URL")
     parser.add_argument("-o", "--output", type=Path, help="Output Markdown path")
+    parser.add_argument(
+        "--snapshot",
+        type=Path,
+        help="Complete provider snapshot JSON file, or - for standard input",
+    )
     parser.add_argument(
         "--mode", choices=("auto", "http", "browser"), default="auto",
         help="Extraction method (default: auto)",
@@ -31,9 +36,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.timeout <= 0:
         print("error: --timeout must be greater than zero", file=sys.stderr)
         return 2
+    if args.snapshot is not None and (args.mode != "auto" or args.headed):
+        print("error: --snapshot cannot be combined with --mode or --headed", file=sys.stderr)
+        return 2
     try:
         shared = parse_shared_url(args.url)
-        conversation = _extract(shared, args.mode, args.timeout, args.headed)
+        if args.snapshot is not None:
+            content = _read_snapshot(args.snapshot)
+            conversation = extract_snapshot_bytes(shared, content)
+        else:
+            conversation = _extract(shared, args.mode, args.timeout, args.headed)
         output = args.output
         if output is not None and output.suffix.lower() != ".md":
             output = output.with_suffix(output.suffix + ".md" if output.suffix else ".md")
@@ -49,6 +61,19 @@ def main(argv: list[str] | None = None) -> int:
     except (UrlValidationError, RetrievalError, BrowserExtractionError, ValueError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
+
+
+def _read_snapshot(path: Path) -> bytes:
+    if str(path) == "-":
+        content = sys.stdin.buffer.read(MAX_RETRIEVAL_BYTES + 1)
+    else:
+        with path.expanduser().open("rb") as handle:
+            content = handle.read(MAX_RETRIEVAL_BYTES + 1)
+    if len(content) > MAX_RETRIEVAL_BYTES:
+        raise RetrievalError(
+            f"Snapshot exceeds the {MAX_RETRIEVAL_BYTES // (1024 * 1024)} MiB limit"
+        )
+    return content
 
 
 def _extract(shared, mode: str, timeout: float, headed: bool):

@@ -7,12 +7,19 @@ from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, HTTPSHandler, Request, build_opener
 
 from .models import Conversation
-from .providers import ProviderParseError, normalize_claude, parse_chatgpt_html
+from .providers import (
+    ProviderParseError,
+    normalize_snapshot,
+    parse_chatgpt_html,
+)
 from .urls import SharedUrl, validate_redirect
 
 
 class RetrievalError(RuntimeError):
     pass
+
+
+MAX_RETRIEVAL_BYTES = 25 * 1024 * 1024
 
 
 class _RestrictedRedirectHandler(HTTPRedirectHandler):
@@ -29,6 +36,16 @@ class _RestrictedRedirectHandler(HTTPRedirectHandler):
 
 def extract_http(shared: SharedUrl, timeout: float) -> Conversation:
     if shared.provider == "chatgpt":
+        snapshot_error: Exception | None = None
+        endpoint = f"https://chatgpt.com/backend-api/share/{shared.share_id}"
+        try:
+            content, content_type, _ = _get(endpoint, "chatgpt.com", timeout)
+            if "json" not in content_type:
+                raise RetrievalError("ChatGPT's snapshot endpoint requires a browser challenge")
+            return extract_snapshot_bytes(shared, content, "chatgpt-snapshot-api")
+        except (RetrievalError, ProviderParseError, ValueError) as exc:
+            snapshot_error = exc
+
         content, content_type, final_url = _get(shared.normalized, "chatgpt.com", timeout)
         validate_redirect(shared, final_url)
         if "html" not in content_type:
@@ -36,7 +53,9 @@ def extract_http(shared: SharedUrl, timeout: float) -> Conversation:
         try:
             return parse_chatgpt_html(content.decode("utf-8", errors="replace"), shared)
         except ProviderParseError as exc:
-            raise RetrievalError(str(exc)) from exc
+            raise RetrievalError(
+                f"Snapshot endpoint failed ({snapshot_error}); share-page parsing failed ({exc})"
+            ) from exc
 
     endpoint = (
         f"https://claude.ai/api/chat_snapshots/{shared.share_id}"
@@ -47,12 +66,25 @@ def extract_http(shared: SharedUrl, timeout: float) -> Conversation:
     if b"just a moment" in prefix or b"cf-mitigated" in prefix or "json" not in content_type:
         raise RetrievalError("Claude's snapshot endpoint requires a browser challenge")
     try:
-        payload = json.loads(content)
-        if not isinstance(payload, dict):
-            raise TypeError("snapshot response is not an object")
-        return normalize_claude(payload, shared, extraction_method="claude-snapshot-api")
+        return extract_snapshot_bytes(shared, content, "claude-snapshot-api")
     except (json.JSONDecodeError, TypeError, ProviderParseError) as exc:
         raise RetrievalError(f"Could not parse Claude snapshot data: {exc}") from exc
+
+
+def extract_snapshot_bytes(
+    shared: SharedUrl, content: bytes, extraction_method: str = "provided-snapshot"
+) -> Conversation:
+    if len(content) > MAX_RETRIEVAL_BYTES:
+        raise RetrievalError(
+            f"Snapshot exceeds the {MAX_RETRIEVAL_BYTES // (1024 * 1024)} MiB limit"
+        )
+    try:
+        payload = json.loads(content.decode("utf-8-sig"))
+        if not isinstance(payload, dict):
+            raise TypeError("snapshot response is not an object")
+        return normalize_snapshot(payload, shared, extraction_method)
+    except (UnicodeDecodeError, json.JSONDecodeError, TypeError, ProviderParseError) as exc:
+        raise RetrievalError(f"Could not parse {shared.provider} snapshot data: {exc}") from exc
 
 
 def _get(url: str, allowed_host: str, timeout: float) -> tuple[bytes, str, str]:
@@ -72,8 +104,13 @@ def _get(url: str, allowed_host: str, timeout: float) -> tuple[bytes, str, str]:
     )
     try:
         with opener.open(request, timeout=timeout) as response:
+            content = response.read(MAX_RETRIEVAL_BYTES + 1)
+            if len(content) > MAX_RETRIEVAL_BYTES:
+                raise RetrievalError(
+                    f"Shared page exceeds the {MAX_RETRIEVAL_BYTES // (1024 * 1024)} MiB limit"
+                )
             return (
-                response.read(),
+                content,
                 response.headers.get("Content-Type", "").lower(),
                 response.geturl(),
             )

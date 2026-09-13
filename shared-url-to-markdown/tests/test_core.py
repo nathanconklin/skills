@@ -13,10 +13,12 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 from shared_url_to_markdown.devalue import unflatten
+from shared_url_to_markdown.fetch import RetrievalError, extract_snapshot_bytes
 from shared_url_to_markdown.models import Conversation, Message
 from shared_url_to_markdown.providers import (
     merge_dom_messages,
     normalize_claude,
+    normalize_chatgpt_snapshot,
     parse_chatgpt_html,
 )
 from shared_url_to_markdown.render import (
@@ -130,6 +132,139 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual([message.role for message in conversation.messages], ["user", "assistant"])
         self.assertIn("[Attachment: source.txt]", conversation.messages[1].markdown)
         self.assertEqual(conversation.messages[1].artifacts[0].title, "Demo")
+
+    def test_chatgpt_mapping_follows_only_the_active_branch(self) -> None:
+        payload = {
+            "title": "Branched chat",
+            "current_node": "a2",
+            "mapping": {
+                "root": {"id": "root", "parent": None, "children": ["u1"]},
+                "u1": {
+                    "id": "u1",
+                    "parent": "root",
+                    "children": ["a1", "a2"],
+                    "message": {
+                        "id": "u1",
+                        "author": {"role": "user"},
+                        "content": {"parts": ["Question"]},
+                    },
+                },
+                "a1": {
+                    "id": "a1",
+                    "parent": "u1",
+                    "children": [],
+                    "message": {
+                        "id": "a1",
+                        "author": {"role": "assistant"},
+                        "content": {"parts": ["Abandoned answer"]},
+                    },
+                },
+                "a2": {
+                    "id": "a2",
+                    "parent": "u1",
+                    "children": [],
+                    "message": {
+                        "id": "a2",
+                        "author": {"role": "assistant"},
+                        "content": {"parts": ["Visible answer"]},
+                    },
+                },
+            },
+        }
+        conversation = normalize_chatgpt_snapshot(
+            payload, parse_shared_url(CHATGPT_URL), "fixture"
+        )
+        self.assertEqual(
+            [message.markdown for message in conversation.messages],
+            ["Question", "Visible answer"],
+        )
+        self.assertEqual(conversation.completeness, "verified")
+
+    def test_chatgpt_mapping_marks_ambiguous_branch_best_effort(self) -> None:
+        payload = {
+            "mapping": {
+                "u1": {
+                    "id": "u1",
+                    "parent": None,
+                    "children": ["a1", "a2"],
+                    "message": {
+                        "id": "u1",
+                        "author": {"role": "user"},
+                        "content": {"parts": ["Question"]},
+                    },
+                },
+                "a1": {
+                    "id": "a1",
+                    "parent": "u1",
+                    "children": [],
+                    "message": {
+                        "id": "a1",
+                        "create_time": 1,
+                        "author": {"role": "assistant"},
+                        "content": {"parts": ["Older"]},
+                    },
+                },
+                "a2": {
+                    "id": "a2",
+                    "parent": "u1",
+                    "children": [],
+                    "message": {
+                        "id": "a2",
+                        "create_time": 2,
+                        "author": {"role": "assistant"},
+                        "content": {"parts": ["Newer"]},
+                    },
+                },
+            }
+        }
+        conversation = normalize_chatgpt_snapshot(
+            payload, parse_shared_url(CHATGPT_URL), "fixture"
+        )
+        self.assertEqual(conversation.completeness, "best-effort")
+        self.assertEqual(conversation.messages[-1].markdown, "Newer")
+        self.assertTrue(conversation.warnings)
+
+    def test_snapshot_hides_internal_messages_and_rejects_wrong_provider(self) -> None:
+        payload = {
+            "title": "Filtered",
+            "linear_conversation": [
+                {
+                    "id": "hidden",
+                    "author": {"role": "assistant"},
+                    "metadata": {"is_visually_hidden_from_conversation": True},
+                    "content": {"parts": ["secret"]},
+                },
+                {
+                    "id": "visible",
+                    "author": {"role": "user"},
+                    "content": {"parts": ["hello"]},
+                },
+            ],
+        }
+        conversation = extract_snapshot_bytes(
+            parse_shared_url(CHATGPT_URL), json.dumps(payload).encode()
+        )
+        self.assertEqual([message.markdown for message in conversation.messages], ["hello"])
+        with self.assertRaises(RetrievalError):
+            extract_snapshot_bytes(
+                parse_shared_url(CLAUDE_URL), json.dumps(payload).encode()
+            )
+
+    def test_snapshot_rejects_explicit_mismatched_share_id(self) -> None:
+        payload = {
+            "share_id": "99999999-2222-4333-8444-555555555555",
+            "linear_conversation": [
+                {
+                    "id": "u1",
+                    "author": {"role": "user"},
+                    "content": {"parts": ["hello"]},
+                }
+            ],
+        }
+        with self.assertRaises(RetrievalError):
+            extract_snapshot_bytes(
+                parse_shared_url(CHATGPT_URL), json.dumps(payload).encode()
+            )
 
     def test_dom_merge_preserves_first_seen_top_to_bottom_order(self) -> None:
         merged = merge_dom_messages(

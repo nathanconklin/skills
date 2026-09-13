@@ -50,6 +50,69 @@ def normalize_chatgpt(
     if not isinstance(raw_messages, list):
         raise ProviderParseError("ChatGPT payload has no linear conversation list")
 
+    return _normalize_chatgpt_messages(
+        payload,
+        raw_messages,
+        shared,
+        extraction_method,
+    )
+
+
+def normalize_chatgpt_snapshot(
+    payload: dict[str, Any], shared: SharedUrl, extraction_method: str
+) -> Conversation:
+    """Normalize either ChatGPT's linear or graph-shaped public snapshot."""
+
+    if isinstance(payload.get("linear_conversation"), list):
+        return normalize_chatgpt(payload, shared, extraction_method)
+
+    mapping = payload.get("mapping")
+    if not isinstance(mapping, dict) or not mapping:
+        raise ProviderParseError("ChatGPT snapshot has no conversation mapping")
+
+    ordered, ambiguous = _active_chatgpt_path(payload, mapping)
+    conversation = _normalize_chatgpt_messages(
+        payload,
+        ordered,
+        shared,
+        extraction_method,
+    )
+    if ambiguous:
+        conversation.completeness = "best-effort"
+        conversation.warnings.append(
+            "The ChatGPT snapshot did not identify one active branch. The most recent "
+            "complete branch was exported, but branch selection could not be verified."
+        )
+    conversation.validate()
+    return conversation
+
+
+def normalize_snapshot(
+    payload: dict[str, Any], shared: SharedUrl, extraction_method: str
+) -> Conversation:
+    """Dispatch a complete provider snapshot supplied by a hosted runtime."""
+
+    explicit_share_id = _first_text(payload, "share_id", "share_uuid")
+    if explicit_share_id and explicit_share_id.lower() != shared.share_id.lower():
+        raise ProviderParseError("Snapshot share ID does not match the supplied URL")
+
+    if shared.provider == "chatgpt":
+        if not any(key in payload for key in ("mapping", "linear_conversation")):
+            raise ProviderParseError("Snapshot is not a ChatGPT conversation payload")
+        return normalize_chatgpt_snapshot(payload, shared, extraction_method)
+
+    if not any(key in payload for key in ("chat_messages", "messages")):
+        raise ProviderParseError("Snapshot is not a Claude conversation payload")
+    return normalize_claude(payload, shared, extraction_method)
+
+
+def _normalize_chatgpt_messages(
+    payload: dict[str, Any],
+    raw_messages: list[Any],
+    shared: SharedUrl,
+    extraction_method: str,
+) -> Conversation:
+
     messages: list[Message] = []
     seen: set[str] = set()
     for index, raw_item in enumerate(raw_messages):
@@ -58,6 +121,12 @@ def normalize_chatgpt(
         raw_message = raw_item.get("message")
         if not isinstance(raw_message, dict):
             raw_message = raw_item
+        metadata = raw_message.get("metadata")
+        if isinstance(metadata, dict) and (
+            metadata.get("is_visually_hidden_from_conversation")
+            or metadata.get("is_user_system_message")
+        ):
+            continue
         author = raw_message.get("author")
         role = author.get("role") if isinstance(author, dict) else raw_message.get("role")
         if role not in {"user", "assistant"}:
@@ -86,6 +155,46 @@ def normalize_chatgpt(
     )
     conversation.validate()
     return conversation
+
+
+def _active_chatgpt_path(
+    payload: dict[str, Any], mapping: dict[str, Any]
+) -> tuple[list[dict[str, Any]], bool]:
+    current_node = payload.get("current_node") or payload.get("current_node_id")
+    ambiguous = False
+    if not isinstance(current_node, str) or current_node not in mapping:
+        leaves: list[tuple[float, str]] = []
+        for node_id, node in mapping.items():
+            if not isinstance(node_id, str) or not isinstance(node, dict):
+                continue
+            children = node.get("children")
+            if isinstance(children, list) and children:
+                continue
+            raw_message = node.get("message")
+            created = raw_message.get("create_time") if isinstance(raw_message, dict) else None
+            timestamp = float(created) if isinstance(created, (int, float)) else 0.0
+            leaves.append((timestamp, node_id))
+        if not leaves:
+            raise ProviderParseError("ChatGPT snapshot has no traversable conversation branch")
+        leaves.sort(key=lambda item: (item[0], item[1]))
+        current_node = leaves[-1][1]
+        ambiguous = len(leaves) != 1
+
+    ordered: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    node_id: str | None = current_node
+    while node_id:
+        if node_id in seen:
+            raise ProviderParseError("ChatGPT snapshot contains a cyclic conversation mapping")
+        seen.add(node_id)
+        node = mapping.get(node_id)
+        if not isinstance(node, dict):
+            raise ProviderParseError("ChatGPT snapshot branch references a missing node")
+        ordered.append(node)
+        parent = node.get("parent")
+        node_id = parent if isinstance(parent, str) and parent else None
+    ordered.reverse()
+    return ordered, ambiguous
 
 
 def normalize_claude(

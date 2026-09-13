@@ -1,0 +1,12 @@
+{
+  "name": "shared-url-to-markdown",
+  "displayName": "Shared URL to Markdown",
+  "version": "0.2.0",
+  "description": "Export public ChatGPT and Claude shared conversations to Markdown.",
+  "author": {
+    "name": "Nathan Conklin",
+    "url": "https://github.com/nathanconklin"
+  },
+  "repository": "https://github.com/nathanconklin/skills",
+  "keywords": ["chatgpt", "claude", "markdown", "export"]
+}

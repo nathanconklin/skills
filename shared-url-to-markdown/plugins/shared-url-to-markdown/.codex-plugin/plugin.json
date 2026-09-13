@@ -1,0 +1,24 @@
+{
+  "name": "shared-url-to-markdown",
+  "version": "0.2.0",
+  "description": "Export public ChatGPT and Claude shared conversations to Markdown.",
+  "author": {
+    "name": "Nathan Conklin",
+    "url": "https://github.com/nathanconklin"
+  },
+  "repository": "https://github.com/nathanconklin/skills",
+  "keywords": ["chatgpt", "claude", "markdown", "export"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Shared Url To Markdown",
+    "shortDescription": "Export shared AI chats to Markdown.",
+    "longDescription": "Export public ChatGPT or Claude share URLs with the bundled Python exporter or convert a complete saved snapshot. No hosted service is required.",
+    "developerName": "Nathan Conklin",
+    "category": "Productivity",
+    "capabilities": ["Write"],
+    "websiteURL": "https://github.com/nathanconklin/skills",
+    "defaultPrompt": [
+      "Export this public ChatGPT or Claude share URL to Markdown."
+    ]
+  }
+}
